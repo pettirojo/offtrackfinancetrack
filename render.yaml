@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: finance-tracker
+    runtime: python
+    repo: https://github.com/YOUR_USERNAME/finance-tracker
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true
