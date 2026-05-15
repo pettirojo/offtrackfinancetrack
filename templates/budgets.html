@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Budget Settings</h1>
+    
+    <form method="POST">
+        <table class="budget-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Monthly Limit</th>
+                    <th>Period Type</th>
+                    <th>Rollover</th>
+                    <th>Alert at %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cat in categories.keys() %}
+                {% set budget_data = current.get(cat, {'limit': '', 'period_type': 'monthly', 'rollover_enabled': false, 'alert_threshold': 80}) %}
+                <tr>
+                    <td><strong>{{ cat }}</strong></td>
+                    <td>
+                        <input type="number" step="0.01" name="budget_{{ cat }}" 
+                               value="{{ budget_data.limit if budget_data.limit else '' }}"
+                               placeholder="0.00">
+                    </td>
+                    <td>
+                        <select name="period_type_{{ cat }}">
+                            {% for period in period_options %}
+                            <option value="{{ period }}" {% if budget_data.period_type == period %}selected{% endif %}>
+                                {{ period|capitalize }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="checkbox" name="rollover_{{ cat }}" {% if budget_data.rollover_enabled %}checked{% endif %}>
+                    </td>
+                    <td>
+                        <select name="alert_threshold_{{ cat }}">
+                            <option value="70" {% if budget_data.alert_threshold == 70 %}selected{% endif %}>70%</option>
+                            <option value="80" {% if budget_data.alert_threshold == 80 %}selected{% endif %}>80%</option>
+                            <option value="90" {% if budget_data.alert_threshold == 90 %}selected{% endif %}>90%</option>
+                            <option value="95" {% if budget_data.alert_threshold == 95 %}selected{% endif %}>95%</option>
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="submit">Save Budgets</button>
+    </form>
+    
+    <h2>Current Status</h2>
+    <div class="budget-status">
+        {% for budget in status %}
+        <div class="budget-item {{ budget.level }}">
+            <div><strong>{{ budget.category }}</strong></div>
+            <div>Spent: ${{ "%.2f"|format(budget.spent) }} / ${{ "%.2f"|format(budget.limit) }}</div>
+            <div class="progress-bar"><div class="progress" style="width: {{ budget.pct }}%;"></div></div>
+            <div>{{ budget.pct }}% used | Remaining: ${{ "%.2f"|format(budget.remaining) }}</div>
+            {% if budget.rollover > 0 %}
+            <div class="rollover-info">+ ${{ "%.2f"|format(budget.rollover) }} carried over</div>
+            {% endif %}
+            {% if budget.forecast %}
+            <div class="forecast">
+                Daily avg: ${{ "%.2f"|format(budget.forecast.daily_avg) }} | 
+                Projected: ${{ "%.2f"|format(budget.forecast.projected) }}
+                {% if budget.forecast.on_track %}✅ On track{% else %}⚠️ May exceed{% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <h2>Budget History (Last 6 Months)</h2>
+    <canvas id="history-chart" width="800" height="400"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Fetch and display budget history
+fetch('/budgets/history')
+    .then(response => response.json())
+    .then(data => {
+        const ctx = document.getElementById('history-chart').getContext('2d');
+        const months = data.map(m => m.month);
+        const categories = data[0]?.categories.map(c => c.category) || [];
+        
+        const datasets = categories.map((category, idx) => ({
+            label: category,
+            data: data.map(m => m.categories.find(c => c.category === category)?.spent || 0),
+            borderColor: `hsl(${idx * 360 / categories.length}, 70%, 50%)`,
+            fill: false
+        }));
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: { labels: months, datasets: datasets },
+            options: { responsive: true, title: { display: true, text: 'Monthly Spending by Category' } }
+        });
+    })
+    .catch(error => console.error('Error loading budget history:', error));
+</script>
+{% endblock %}

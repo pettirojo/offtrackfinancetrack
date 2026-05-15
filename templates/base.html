@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}FinanceTracker{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  {% if session.user_id %}
+  <nav class="navbar">
+    <a href="{{ url_for('dashboard') }}" class="nav-brand">
+      <span class="brand-icon">◈</span> FinanceTracker
+    </a>
+    <ul class="nav-links">
+      <li><a href="{{ url_for('dashboard') }}" {% if request.endpoint=='dashboard' %}class="active"{% endif %}>Dashboard</a></li>
+      <li><a href="{{ url_for('accounts') }}" {% if request.endpoint=='accounts' %}class="active"{% endif %}>Accounts</a></li>
+      <li><a href="{{ url_for('expenses') }}" {% if request.endpoint=='expenses' %}class="active"{% endif %}>Expenses</a></li>
+      <li><a href="{{ url_for('income') }}" {% if request.endpoint=='income' %}class="active"{% endif %}>Income</a></li>
+      <li><a href="{{ url_for('budgets') }}"  {% if request.endpoint=='budgets' %}class="active"{% endif %}>Budgets</a></li>
+      <li><a href="{{ url_for('shopping') }}" {% if request.endpoint=='shopping' %}class="active"{% endif %}>Shopping</a></li>
+    </ul>
+    <div class="nav-user">
+      <span class="user-chip">{{ session.username }}</span>
+      <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+    </div>
+  </nav>
+  {% endif %}
+
+  <main class="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-container">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <span>FinanceTracker · Your data, your device</span>
+  </footer>
+</body>
+</html>

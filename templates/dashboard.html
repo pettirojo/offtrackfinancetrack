@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Dashboard</h1>
+            <p class="page-sub">Welcome back, {{ session.username }}!</p>
+        </div>
+    </div>
+    
+    <!-- Period Filter -->
+    <div class="period-bar">
+        <form method="GET" class="filter-form">
+            <div class="period-pills">
+                {% for value, label in period_options %}
+                <button type="submit" name="period" value="{{ value }}" class="pill {% if period == value %}pill-active{% endif %}">
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </div>
+            <div id="custom-range" style="display: {% if period == 'custom' %}flex{% else %}none{% endif %};" class="custom-range">
+                <input type="date" name="custom_start" class="date-input" value="{{ custom_start }}">
+                <span>→</span>
+                <input type="date" name="custom_end" class="date-input" value="{{ custom_end }}">
+                <button type="submit" class="btn btn-sm">Apply</button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Budget Alerts -->
+    {% if budget_alerts %}
+    <div class="alerts-container">
+        {% for alert in budget_alerts %}
+        <div class="alert alert-warn">
+            {{ alert }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Summary Cards -->
+    <div class="kpi-row">
+        <div class="kpi-card">
+            <div class="kpi-label">Total Spending</div>
+            <div class="kpi-value">{{ currency_symbol }} {{ "{:,.2f}".format(total) }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Shopping List</div>
+            <div class="kpi-value">{{ currency_symbol }} {{ "{:,.2f}".format(shopping_total) }}</div>
+            <div class="kpi-meta">{{ shopping_count }} items unchecked</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Net Worth</div>
+            <div class="kpi-value">{{ currency_symbol }} {{ "{:,.2f}".format(net_worth) }}</div>
+        </div>
+    </div>
+    
+    <!-- Account Balances Section -->
+    <div class="accounts-section">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Account Balances</h2>
+                <a href="{{ url_for('accounts') }}" class="card-link">Manage Accounts →</a>
+            </div>
+            <div class="account-balances-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                {% for account in account_balances %}
+                <div class="account-balance-card" style="background: var(--surface2); border-radius: var(--radius); padding: 1rem; border-left: 3px solid {{ account.color }};">
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">{{ account.name }}</div>
+                    <div style="font-size: 1.3rem; font-weight: bold; margin-top: 0.3rem;">{{ account.formatted_balance }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts -->
+    <div class="charts-grid">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h3 class="card-title">Spending by Category</h3>
+            </div>
+            <img src="{{ pie_url }}" alt="Spending by Category" class="chart-img">
+        </div>
+        <div class="card chart-card">
+            <div class="card-header">
+                <h3 class="card-title">Spending by Sub-category</h3>
+            </div>
+            <img src="{{ bar_url }}" alt="Spending by Sub-category" class="chart-img">
+        </div>
+    </div>
+    
+    <!-- Budget Status -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Budget Status</h2>
+            <a href="{{ url_for('budgets') }}" class="card-link">Edit Budgets →</a>
+        </div>
+        {% if budget_status %}
+            {% for budget in budget_status %}
+            <div class="budget-status-row">
+                <div class="budget-meta">
+                    <span class="budget-cat">{{ budget.category }}</span>
+                    <span class="budget-nums">{{ currency_symbol }} {{ "{:,.2f}".format(budget.spent) }} / {{ currency_symbol }} {{ "{:,.2f}".format(budget.limit) }}</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill progress-{{ budget.level }}" style="width: {{ budget.pct }}%;"></div>
+                </div>
+                <div class="budget-pct">
+                    <span>{{ budget.pct }}% used</span>
+                    <span class="text-{{ budget.level }}">{{ budget.remaining }} remaining</span>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">No budgets set. <a href="{{ url_for('budgets') }}">Create a budget</a> to start tracking.</div>
+        {% endif %}
+    </div>
+    
+    <!-- Two Column Layout -->
+    <div class="two-col">
+        <!-- Recent Expenses -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Recent Expenses</h2>
+                <a href="{{ url_for('expenses') }}" class="card-link">View all →</a>
+            </div>
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Date</th><th>Description</th><th>Category</th><th class="col-right">Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for exp in recent %}
+                        <tr>
+                            <td>{{ exp.expense_date }}</td>
+                            <td class="desc-cell">{{ exp.description or '-' }}</td>
+                            <td>{{ exp.category }}</td>
+                            <td class="col-right amount-cell">{{ currency_symbol }} {{ "{:.2f}".format(exp.amount) }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not recent %}
+                        <tr><td colspan="4" class="empty-state">No expenses in this period.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Shopping Preview -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Shopping List Preview</h2>
+                <a href="{{ url_for('shopping') }}" class="card-link">Full list →</a>
+            </div>
+            {% if shopping_preview %}
+            <ul class="preview-list">
+                {% for item in shopping_preview %}
+                <li class="preview-item">
+                    {{ item.item_name }}
+                    {% if item.estimated_price %}({{ currency_symbol }} {{ "{:.2f}".format(item.estimated_price) }}){% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">No items in shopping list.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Show/hide custom date range
+document.querySelectorAll('button[name="period"]').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        if (this.value === 'custom') {
+            e.preventDefault();
+            document.getElementById('custom-range').style.display = 'flex';
+        } else if (this.value !== 'custom') {
+            // Let the form submit normally for other periods
+            return;
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Income Tracking</h1>
+            <p class="page-sub">Record and manage your income sources</p>
+        </div>
+    </div>
+    
+    <!-- Add Income Form -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Add Income</h2>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Amount ({{ currency_symbol }})</label>
+                    <input type="number" step="0.01" name="amount" placeholder="0.00" required>
+                </div>
+                <div class="form-field">
+                    <label>Source</label>
+                    <input type="text" name="source" placeholder="Salary, Business, etc." required>
+                </div>
+                <div class="form-field full-width">
+                    <label>Description</label>
+                    <input type="text" name="description" placeholder="Optional description">
+                </div>
+                <div class="form-field">
+                    <label>Category</label>
+                    <select name="category">
+                        <option value="Salary">Salary</option>
+                        <option value="Business">Business</option>
+                        <option value="Investment">Investment Returns</option>
+                        <option value="Gifts">Gifts</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Account</label>
+                    <select name="account_id">
+                        <option value="">-- Select Account --</option>
+                        {% for account in accounts_list %}
+                        <option value="{{ account.id }}">
+                            {{ account.name }} (Balance: {{ currency_symbol }} {{ "{:,.2f}".format(account.balance) }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <span class="field-hint">↑ Income increases this account</span>
+                </div>
+                <div class="form-field">
+                    <label>Date</label>
+                    <input type="date" name="income_date" value="{{ today }}">
+                </div>
+                <div class="form-field action-field">
+                    <button type="submit" class="btn btn-primary">+ Add Income</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Income Summary -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Income</div>
+            <div class="stat-value text-green">{{ currency_symbol }} {{ "{:,.2f}".format(total_income) }}</div>
+        </div>
+    </div>
+    
+    <!-- Income List -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Income History</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Source</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Account</th>
+                        <th class="col-right">Amount</th>
+                        <th class="col-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for income in income_records %}
+                    <tr>
+                        <td>{{ income.income_date }}</td>
+                        <td>{{ income.source }}</td>
+                        <td class="desc-cell">{{ income.description or '-' }}</td>
+                        <td>{{ income.category }}</td>
+                        <td>{{ income.account_name or '-' }}</td>
+                        <td class="col-right amount-cell text-green">{{ currency_symbol }} {{ "{:,.2f}".format(income.amount) }}</td>
+                        <td class="col-center actions-cell">
+                            <form method="POST" style="display: inline;">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="income_id" value="{{ income.id }}">
+                                <button type="submit" class="btn-action btn-del" onclick="return confirm('Delete this income record?')">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not income_records %}
+                    <tr>
+                        <td colspan="7" class="empty-state">No income records yet. Add your first income above!</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Form grid - same as expenses */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    padding: 1.25rem;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.form-field.full-width {
+    grid-column: span 4;
+}
+
+.form-field label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.form-field input,
+.form-field select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+.form-field input:focus,
+.form-field select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.field-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
+.action-field {
+    justify-content: flex-end;
+    margin-top: auto;
+    padding-top: 1.4rem;
+}
+
+/* Stats grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* Table styles */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.7rem 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.data-table th {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    background: var(--surface2);
+}
+
+.col-right {
+    text-align: right;
+}
+
+.col-center {
+    text-align: center;
+}
+
+.amount-cell {
+    font-weight: 600;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.desc-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.actions-cell {
+    white-space: nowrap;
+}
+
+.text-green {
+    color: var(--green) !important;
+}
+
+.btn-action {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: var(--surface2);
+    color: var(--text-sub);
+    text-decoration: none;
+}
+
+.btn-action:hover {
+    background: var(--border);
+}
+
+.btn-del {
+    color: var(--red);
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .form-field.full-width {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 600px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    .form-field.full-width,
+    .form-field {
+        grid-column: span 1;
+    }
+    .action-field {
+        margin-top: 0;
+        padding-top: 0;
+    }
+}
+</style>
+{% endblock %}

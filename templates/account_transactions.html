@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="transaction-header">
+        <a href="{{ url_for('accounts') }}" class="back-link">← Back to Accounts</a>
+        <h1>{{ account.name }} Transactions</h1>
+    </div>
+    
+    <div class="account-summary">
+        <div class="current-balance">
+            <span class="label">Current Balance</span>
+            <span class="amount">{{ currency_symbol }} {{ "{:,.2f}".format(balance) }}</span>
+        </div>
+    </div>
+    
+    <div class="transactions-list">
+        <h2>Transaction History</h2>
+        {% if transactions %}
+        <table class="data-table">
+            <thead>
+                <tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th>Type</th></tr>
+            </thead>
+            <tbody>
+                {% for t in transactions %}
+                <tr class="transaction-{{ t.type }}">
+                    <td>{{ t.date }}</td>
+                    <td>{{ t.description }}</td>
+                    <td>{{ t.category if t.category else t.subcategory }}</td>
+                    <td class="amount {{ t.type }}">
+                        {% if t.type == 'expense' %}-{% endif %}
+                        {{ currency_symbol }} {{ "{:,.2f}".format(t.amount) }}
+                    </td>
+                    <td>
+                        <span class="badge {{ t.type }}">
+                            {{ t.type|upper }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-data">No transactions found for this account.</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.transaction-header {
+    margin-bottom: 20px;
+}
+
+.back-link {
+    color: #4f8ef7;
+    text-decoration: none;
+    display: inline-block;
+    margin-bottom: 10px;
+}
+
+.account-summary {
+    background: linear-gradient(135deg, #1a1d2e, #0f1117);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.current-balance {
+    text-align: center;
+}
+
+.current-balance .label {
+    font-size: 14px;
+    color: #888;
+    display: block;
+}
+
+.current-balance .amount {
+    font-size: 36px;
+    font-weight: bold;
+    color: #4f8ef7;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.badge.expense {
+    background: #e74c3c20;
+    color: #e74c3c;
+}
+
+.badge.income {
+    background: #2ecc7120;
+    color: #2ecc71;
+}
+
+.amount.expense {
+    color: #e74c3c;
+}
+
+.amount.income {
+    color: #2ecc71;
+}
+</style>
+{% endblock %}

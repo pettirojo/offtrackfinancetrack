@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Shopping List</h1>
+            <p class="page-sub">Manage your shopping items and track estimated costs</p>
+        </div>
+    </div>
+    
+    <!-- Summary -->
+    <div class="kpi-row">
+        <div class="kpi-card">
+            <div class="kpi-label">Estimated Total</div>
+            <div class="kpi-value">{{ currency_symbol }} {{ "{:,.2f}".format(shopping_total) }}</div>
+            <div class="kpi-meta">{{ shopping_count }} items unchecked</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Quick Actions</div>
+            <div class="summary-actions" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                <a href="{{ url_for('export_shopping') }}" class="btn btn-sm btn-outline">Export CSV</a>
+                <a href="{{ url_for('print_shopping') }}" class="btn btn-sm btn-outline" target="_blank">Print List</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Filters</h3>
+        </div>
+        <form method="GET">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Category</label>
+                    <select name="category_filter">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Priority</label>
+                    <select name="priority_filter">
+                        <option value="">All Priorities</option>
+                        {% for val, label in priority_options %}
+                        <option value="{{ val }}" {% if priority_filter|int == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group form-group-btn">
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                    <a href="{{ url_for('shopping') }}" class="btn btn-outline">Clear</a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Add Item Form -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Add New Item</h3>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            <div class="form-row">
+                <div class="form-group form-group-wide">
+                    <input type="text" name="item_name" placeholder="Item name" required>
+                </div>
+                <div class="form-group">
+                    <select name="category">
+                        {% for cat in categories %}
+                        <option value="{{ cat }}">{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <select name="priority">
+                        {% for val, label in priority_options %}
+                        <option value="{{ val }}">{{ label }} Priority</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <input type="number" step="0.01" name="estimated_price" placeholder="Est. price ({{ currency_symbol }})">
+                </div>
+                <div class="form-group form-group-btn">
+                    <button type="submit" class="btn btn-primary">Add Item</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Shopping List Table -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Shopping Items</h3>
+        </div>
+        <form method="POST" id="shopping-form">
+            <input type="hidden" name="action" value="bulk_update">
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">✓</th>
+                            <th>Item</th>
+                            <th>Category</th>
+                            <th>Priority</th>
+                            <th class="col-right">Est. Price</th>
+                            <th style="width: 150px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr class="{% if item.bought %}item-bought{% endif %}">
+                            <td>
+                                <input type="checkbox" name="checked_items" value="{{ item.id }}" {% if item.bought %}checked{% endif %}>
+                            </td>
+                            <td>
+                                {% if edit_id == item.id %}
+                                <form method="POST" style="display: inline;" class="edit-inline-form">
+                                    <input type="hidden" name="action" value="edit">
+                                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                                    <div class="form-row" style="margin: 0; gap: 0.5rem;">
+                                        <input type="text" name="item_name" value="{{ item.item_name }}" required style="width: auto;">
+                                        <select name="category">
+                                            {% for cat in categories %}
+                                            <option value="{{ cat }}" {% if cat == item.category %}selected{% endif %}>{{ cat }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <select name="priority">
+                                            {% for val, label in priority_options %}
+                                            <option value="{{ val }}" {% if item.priority == val %}selected{% endif %}>{{ label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <input type="number" step="0.01" name="estimated_price" value="{{ item.estimated_price or '' }}" placeholder="Price">
+                                        <button type="submit" class="btn-action btn-edit">Save</button>
+                                    </div>
+                                </form>
+                                {% else %}
+                                {{ item.item_name }}
+                                {% endif %}
+                            </td>
+                            <td>{{ item.category }}</td>
+                            <td><span class="badge badge-{{ ['red', 'yellow', 'green'][item.priority-1] }}">{{ ['High','Medium','Low'][item.priority-1] }}</span></td>
+                            <td class="col-right">{% if item.estimated_price %}{{ currency_symbol }} {{ "{:,.2f}".format(item.estimated_price) }}{% else %}—{% endif %}</td>
+                            <td class="actions-cell">
+                                {% if not edit_id == item.id %}
+                                <a href="?edit_id={{ item.id }}" class="btn-action btn-edit">Edit</a>
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                                    <button type="submit" class="btn-action btn-del" onclick="return confirm('Delete this item?')">Delete</button>
+                                </form>
+                                {% if not item.bought and item.estimated_price %}
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="action" value="convert_to_expense">
+                                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                                    <button type="submit" class="btn-action btn-edit">Convert</button>
+                                </form>
+                                {% endif %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not items %}
+                        <tr>
+                            <td colspan="6" class="empty-state">No items in shopping list. Add some above!</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="bulk-actions" style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                <button type="submit" class="btn btn-primary">Update Checked Items</button>
+                <button type="button" onclick="document.getElementById('clear-form').submit();" class="btn btn-outline">Clear Bought Items</button>
+            </div>
+        </form>
+        
+        <form id="clear-form" method="POST" style="display: none;">
+            <input type="hidden" name="action" value="clear_bought">
+        </form>
+    </div>
+    
+    <!-- Templates Section -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Shopping Templates</h3>
+        </div>
+        <div class="form-row">
+            <div class="create-template">
+                <form method="POST" style="display: flex; gap: 0.5rem;">
+                    <input type="hidden" name="action" value="create_template">
+                    <input type="text" name="template_name" placeholder="Template name" class="form-group-wide">
+                    <button type="submit" class="btn btn-primary">Save Current as Template</button>
+                </form>
+            </div>
+            
+            {% if templates %}
+            <div class="apply-template">
+                <form method="POST" style="display: flex; gap: 0.5rem;">
+                    <input type="hidden" name="action" value="apply_template">
+                    <select name="template_id" class="form-group-wide">
+                        {% for template in templates %}
+                        <option value="{{ template.id }}">{{ template.template_name }} ({{ template.created_at[:10] }})</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-outline">Apply Template</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Frequent Items Suggestions -->
+    {% if frequent_items %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Frequently Purchased Items</h3>
+            <small>Click to add to shopping list</small>
+        </div>
+        <div class="suggestion-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem;">
+            {% for item in frequent_items %}
+            <div class="suggestion" onclick="addToShoppingList('{{ item.description }}')" style="background: var(--surface2); padding: 0.5rem; border-radius: var(--radius); cursor: pointer;">
+                <strong>{{ item.description }}</strong>
+                <small style="display: block; font-size: 0.75rem; color: var(--text-muted);">Bought {{ item.frequency }} times, avg {{ currency_symbol }} {{ "{:.2f}".format(item.avg_price) }}</small>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Share Shopping List -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Share Shopping List</h3>
+        </div>
+        {% if share_token %}
+        <div class="share-link" style="display: flex; gap: 0.5rem;">
+            <input type="text" readonly value="{{ url_for('shared_shopping_list', token=share_token, _external=True) }}" id="share-url" style="flex: 1;">
+            <button onclick="copyShareUrl()" class="btn btn-primary">Copy Link</button>
+        </div>
+        {% else %}
+        <form method="POST" action="{{ url_for('create_share_link') }}" id="share-form" class="form-row">
+            <div class="form-group">
+                <select name="access_type">
+                    <option value="view">View Only</option>
+                    <option value="edit">Can Edit</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <select name="expires_days">
+                    <option value="1">1 day</option>
+                    <option value="7" selected>7 days</option>
+                    <option value="30">30 days</option>
+                </select>
+            </div>
+            <div class="form-group form-group-btn">
+                <button type="button" onclick="createShareLink()" class="btn btn-primary">Generate Share Link</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function copyShareUrl() {
+    const urlInput = document.getElementById('share-url');
+    urlInput.select();
+    document.execCommand('copy');
+    alert('Share link copied to clipboard!');
+}
+
+function createShareLink() {
+    const form = document.getElementById('share-form');
+    const formData = new FormData(form);
+    
+    fetch('/shopping/share', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        const shareDiv = document.querySelector('.share-link');
+        if (shareDiv) {
+            shareDiv.innerHTML = `
+                <input type="text" readonly value="${data.share_url}" id="share-url" style="flex: 1;">
+                <button onclick="copyShareUrl()" class="btn btn-primary">Copy Link</button>
+            `;
+        } else {
+            location.reload();
+        }
+        alert('Share link created!');
+    });
+}
+
+function addToShoppingList(itemName) {
+    // Find the add item form and populate it
+    const itemInput = document.querySelector('.add-item input[name="item_name"]');
+    if (itemInput) {
+        itemInput.value = itemName;
+        itemInput.focus();
+    }
+}
+</script>
+{% endblock %}

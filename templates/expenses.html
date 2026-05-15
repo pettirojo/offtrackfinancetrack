@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Expenses</h1>
+            <p class="page-sub">Track and manage your expenses</p>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('export_csv') }}" class="btn btn-sm btn-outline">Export CSV</a>
+        </div>
+    </div>
+
+    <!-- Add Expense Form -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Add Expense</h3>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Date</label>
+                    <input type="date" name="expense_date" value="{{ today }}" required>
+                </div>
+                <div class="form-field full-width">
+                    <label>Description</label>
+                    <input type="text" name="description" placeholder="e.g., Groceries at Carrefour" required>
+                </div>
+                <div class="form-field">
+                    <label>Category</label>
+                    <select name="category" required>
+                        {% for cat in categories.keys() %}
+                        <option value="{{ cat }}">{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Sub-category</label>
+                    <select name="subcategory" required>
+                        <option value="">Select subcategory</option>
+                        {% for cat, subs in categories.items() %}
+                        <optgroup label="{{ cat }}">
+                            {% for sub in subs %}
+                            <option value="{{ sub }}">{{ sub }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Account</label>
+                    <select name="account_id">
+                        <option value="">-- Select Account --</option>
+                        {% for account in accounts_list %}
+                        <option value="{{ account.id }}">
+                            {{ account.name }} (Balance: {{ currency_symbol }} {{ "{:,.2f}".format(account.balance) }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <span class="field-hint">↓ Expense reduces this account</span>
+                </div>
+                <div class="form-field">
+                    <label>Amount ({{ currency_symbol }})</label>
+                    <input type="number" step="0.01" name="amount" placeholder="0.00" required>
+                </div>
+                <div class="form-field action-field">
+                    <button type="submit" class="btn btn-primary">+ Add Expense</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Period Filter -->
+    <div class="filter-bar">
+        <div class="period-pills">
+            {% for p_val, p_label in period_options %}
+            <a href="{{ url_for('expenses', period=p_val, category_filter=cat_filter, account_filter=account_filter) }}"
+               class="pill {% if period == p_val %}pill-active{% endif %}">
+                {{ p_label }}
+            </a>
+            {% endfor %}
+        </div>
+        <div class="filter-controls">
+            <form method="GET" class="filter-form">
+                <div class="filter-group">
+                    <label>Account</label>
+                    <select name="account_filter">
+                        <option value="">All Accounts</option>
+                        {% for account in accounts_list %}
+                        <option value="{{ account.id }}" {% if account_filter|int == account.id %}selected{% endif %}>
+                            {{ account.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Category</label>
+                    <select name="category_filter">
+                        <option value="">All Categories</option>
+                        {% for cat in categories.keys() %}
+                        <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-buttons">
+                    <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+                    <a href="{{ url_for('expenses') }}" class="btn btn-sm btn-outline">Clear</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Expenses Table -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Expense List</h3>
+        </div>
+        {% if expenses %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Sub-category</th>
+                        <th>Account</th>
+                        <th class="col-right">Amount</th>
+                        <th class="col-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exp in expenses %}
+                    <tr {% if edit_id == exp.id %}class="edit-row"{% endif %}>
+                        {% if edit_id == exp.id %}
+                        <form method="POST">
+                            <input type="hidden" name="action" value="edit">
+                            <input type="hidden" name="expense_id" value="{{ exp.id }}">
+                            <td><input type="date" name="expense_date" value="{{ exp.expense_date }}"></td>
+                            <td><input type="text" name="description" value="{{ exp.description or '' }}" required></td>
+                            <td>
+                                <select name="category" required>
+                                    {% for cat in categories.keys() %}
+                                    <option value="{{ cat }}" {% if cat == exp.category %}selected{% endif %}>{{ cat }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="text" name="subcategory" value="{{ exp.subcategory }}" required></td>
+                            <td>
+                                <select name="account_id">
+                                    <option value="">None</option>
+                                    {% for acc in accounts_list %}
+                                    <option value="{{ acc.id }}" {% if exp.account_id == acc.id %}selected{% endif %}>{{ acc.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="number" step="0.01" name="amount" value="{{ exp.amount }}" required></td>
+                            <td>
+                                <button type="submit" class="btn-action btn-edit">Save</button>
+                                <a href="{{ url_for('expenses') }}" class="btn-action">Cancel</a>
+                            </td>
+                        </form>
+                        {% else %}
+                        <td>{{ exp.expense_date }}</td>
+                        <td class="desc-cell">{{ exp.description or '-' }}</td>
+                        <td>{{ exp.category }}</td>
+                        <td>{{ exp.subcategory or '-' }}</td>
+                        <td>{{ exp.account_name or '-' }}</td>
+                        <td class="col-right amount-cell">{{ currency_symbol }} {{ "{:.2f}".format(exp.amount) }}</td>
+                        <td class="col-center actions-cell">
+                            <a href="{{ url_for('expenses', edit_id=exp.id, period=period, category_filter=cat_filter, account_filter=account_filter) }}" class="btn-action btn-edit">Edit</a>
+                            <form method="POST" style="display: inline;" onsubmit="return confirm('Delete this expense?')">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="expense_id" value="{{ exp.id }}">
+                                <button type="submit" class="btn-action btn-del">Delete</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No expenses found. Add your first expense above!</div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+/* Improved form grid */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    padding: 1.25rem;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.form-field.full-width {
+    grid-column: span 4;
+}
+
+.form-field label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.form-field input,
+.form-field select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+.form-field input:focus,
+.form-field select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.field-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
+.action-field {
+    justify-content: flex-end;
+    margin-top: auto;
+    padding-top: 1.4rem;
+}
+
+/* Filter bar */
+.filter-bar {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.period-pills {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+}
+
+.pill {
+    display: inline-block;
+    padding: 0.4rem 0.9rem;
+    border-radius: 99px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+}
+
+.pill:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.pill-active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.filter-controls {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+}
+
+.filter-form {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.filter-group label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.filter-group select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Table improvements */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.7rem 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.data-table th {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    background: var(--surface2);
+}
+
+.col-right {
+    text-align: right;
+}
+
+.col-center {
+    text-align: center;
+}
+
+.amount-cell {
+    font-weight: 600;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.desc-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.actions-cell {
+    white-space: nowrap;
+    display: flex;
+    gap: 0.3rem;
+    justify-content: center;
+}
+
+.btn-action {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: var(--surface2);
+    color: var(--text-sub);
+    text-decoration: none;
+}
+
+.btn-action:hover {
+    background: var(--border);
+}
+
+.btn-edit {
+    color: var(--primary);
+}
+
+.btn-del {
+    color: var(--red);
+}
+
+.btn-sm {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .form-field.full-width {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 600px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    .form-field.full-width,
+    .form-field {
+        grid-column: span 1;
+    }
+    .action-field {
+        margin-top: 0;
+        padding-top: 0;
+    }
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filter-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filter-group {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}

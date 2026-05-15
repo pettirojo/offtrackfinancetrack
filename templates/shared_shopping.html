@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="shared-header" style="margin-bottom: 1.5rem;">
+        <h1>Shared Shopping List</h1>
+        <p class="note" style="color: var(--text-muted);">This is a shared list - {% if can_edit %}you can edit items{% else %}view only{% endif %}</p>
+    </div>
+    
+    <div class="shopping-summary">
+        <div class="kpi-row">
+            <div class="kpi-card">
+                <div class="kpi-label">Total Items</div>
+                <div class="kpi-value">{{ items|length }}</div>
+            </div>
+        </div>
+    </div>
+    
+    {% if can_edit %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Add New Item</h3>
+        </div>
+        <form method="POST" action="{{ url_for('shared_shopping_list', token=share_token) }}">
+            <input type="hidden" name="action" value="add">
+            <div class="form-row">
+                <div class="form-group form-group-wide">
+                    <input type="text" name="item_name" placeholder="Item name" required>
+                </div>
+                <div class="form-group form-group-btn">
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Shopping Items</h3>
+        </div>
+        <form method="POST" id="shopping-form" action="{{ url_for('shared_shopping_list', token=share_token) }}">
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            {% if can_edit %}<th style="width: 40px;">✓</th>{% endif %}
+                            <th>Item</th>
+                            <th>Category</th>
+                            <th>Priority</th>
+                            <th class="col-right">Est. Price</th>
+                            {% if can_edit %}<th style="width: 80px;">Actions</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr class="priority-{{ item.priority }}">
+                            {% if can_edit %}
+                            <td>
+                                <input type="checkbox" name="checked_items" value="{{ item.id }}" {% if item.bought %}checked{% endif %}>
+                            </td>
+                            {% endif %}
+                            <td>{{ item.item_name }}</td>
+                            <td>{{ item.category }}</td>
+                            <td><span class="badge badge-{{ ['red', 'yellow', 'green'][item.priority-1] }}">{{ ['High','Medium','Low'][item.priority-1] }}</span></td>
+                            <td class="col-right">{% if item.estimated_price %}{{ currency_symbol }} {{ "{:,.2f}".format(item.estimated_price) }}{% else %}—{% endif %}</td>
+                            {% if can_edit %}
+                            <td class="actions-cell">
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                                    <button type="submit" class="btn-action btn-del" onclick="return confirm('Delete this item?')">Delete</button>
+                                </form>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% if not items %}
+                        <tr>
+                            <td colspan="{% if can_edit %}6{% else %}5{% endif %}" class="empty-state">No items in this shopping list.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if can_edit %}
+            <div class="bulk-actions" style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                <button type="submit" name="action" value="bulk_update" class="btn btn-primary">Update Checked Items</button>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+    
+    <p class="footer-note" style="text-align: center; margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+        Shared via Finance Tracker - Expires automatically
+    </p>
+</div>
+{% endblock %}

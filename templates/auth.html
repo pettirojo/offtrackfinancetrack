@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if mode=='login' %}Login{% else %}Register{% endif %} – FinanceTracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="auth-body">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="brand-icon-lg">◈</span>
+      <h1 class="auth-title">FinanceTracker</h1>
+      <p class="auth-sub">Your personal spending dashboard</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" class="auth-form">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required autocomplete="username" placeholder="your_username">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required autocomplete="{% if mode=='login' %}current-password{% else %}new-password{% endif %}" placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">
+        {% if mode=='login' %}Sign In{% else %}Create Account{% endif %}
+      </button>
+    </form>
+
+    <p class="auth-switch">
+      {% if mode=='login' %}
+        No account? <a href="{{ url_for('register') }}">Register here</a>
+      {% else %}
+        Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+      {% endif %}
+    </p>
+  </div>
+</body>
+</html>

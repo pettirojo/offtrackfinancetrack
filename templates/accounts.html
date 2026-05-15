@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Accounts Overview</h1>
+            <p class="page-sub">Manage your M-Pesa, I&M Bank accounts, and Savings</p>
+        </div>
+        <div>
+            <a href="{{ url_for('income') }}" class="btn btn-primary">+ Add Income to Account</a>
+        </div>
+    </div>
+    
+    <!-- Account Balance Cards -->
+    <div class="accounts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+        {% for account in accounts %}
+        <div class="account-card" style="background: var(--surface); border-radius: var(--radius-lg); padding: 1.5rem; border-left: 4px solid {{ account.color }};">
+            <div class="account-header" style="margin-bottom: 1rem;">
+                <h3 style="font-family: var(--font-disp);">{{ account.name }}</h3>
+                <span class="badge" style="background: {{ account.color }}20; color: {{ account.color }}; padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); font-size: 0.75rem;">
+                    {{ account.type.replace('_', ' ').title() }}
+                </span>
+            </div>
+            <div class="account-balance" style="margin-bottom: 1.25rem;">
+                <div class="balance-label" style="font-size: 0.75rem; color: var(--text-muted);">Current Balance</div>
+                <div class="balance-amount" style="font-size: 1.8rem; font-weight: bold; color: {{ account.color }};">
+                    {{ account.formatted_balance }}
+                </div>
+                {% if account.initial_balance > 0 %}
+                <div class="initial-balance" style="font-size: 0.7rem; color: var(--text-muted);">
+                    Initial: {{ currency_symbol }} {{ "{:,.2f}".format(account.initial_balance) }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="account-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <a href="{{ url_for('account_transactions', account_id=account.id) }}" class="btn btn-sm btn-outline">View History</a>
+                <button onclick="showAddMoney({{ account.id }}, '{{ account.name }}')" class="btn btn-sm btn-success" style="background: #2ecc71; color: white;">+ Add Money</button>
+                <button onclick="showUpdateBalance({{ account.id }}, '{{ account.name }}', {{ account.balance }})" class="btn btn-sm btn-outline">Set Starting</button>
+                <a href="{{ url_for('edit_account', account_id=account.id) }}" class="btn btn-sm btn-outline">Edit</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Net Worth Summary -->
+    <div class="net-worth-card" style="background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 0.5rem;">Net Worth</h3>
+        <div class="net-worth-amount" style="font-size: 2.5rem; font-weight: bold;">{{ currency_symbol }} {{ "{:,.2f}".format(net_worth) }}</div>
+        <small>Total across all accounts</small>
+    </div>
+    
+    <!-- Transfer Between Accounts -->
+    <div class="transfer-section" style="background: var(--surface); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem;">
+        <h2 style="margin-bottom: 1rem;">Transfer Between Accounts</h2>
+        <form method="POST" action="{{ url_for('transfer_money') }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>From Account</label>
+                    <select name="from_account" required>
+                        <option value="">Select account...</option>
+                        {% for account in accounts %}
+                        <option value="{{ account.id }}">{{ account.name }} ({{ account.formatted_balance }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>To Account</label>
+                    <select name="to_account" required>
+                        <option value="">Select account...</option>
+                        {% for account in accounts %}
+                        <option value="{{ account.id }}">{{ account.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Amount ({{ currency_symbol }})</label>
+                    <input type="number" step="0.01" name="amount" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" name="description" placeholder="Transfer reason">
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" name="transfer_date" value="{{ today_date }}">
+                </div>
+                <div class="form-group form-group-btn">
+                    <button type="submit" class="btn btn-primary">Transfer Money</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Recent Transactions -->
+    <div class="recent-transactions">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Recent Transactions</h2>
+            </div>
+            {% if recent_transactions %}
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Account</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                            <th class="col-right">Amount</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in recent_transactions %}
+                        <tr class="transaction-{{ t.type }}">
+                            <td>{{ t.date }}</td>
+                            <td>{{ t.account_name }}</td>
+                            <td>{{ t.description }}</td>
+                            <td>{{ t.category if t.category else t.subcategory }}</td>
+                            <td class="col-right amount-cell {% if t.type == 'expense' %}text-red{% else %}text-green{% endif %}">
+                                {% if t.type == 'expense' %}-{% else %}+{% endif %}
+                                {{ currency_symbol }} {{ "{:,.2f}".format(t.amount) }}
+                            </td>
+                            <td>
+                                <span class="badge {% if t.type == 'expense' %}badge-red{% else %}badge-green{% endif %}">
+                                    {{ t.type|upper }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No transactions yet. Add income or expenses to see them here!</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Help Section -->
+    <div class="info-box" style="background: var(--surface2); border-radius: var(--radius-lg); padding: 1.25rem; margin-top: 1.5rem; border-left: 4px solid var(--accent);">
+        <h4 style="margin-bottom: 0.75rem;">💡 How Account Balances Work</h4>
+        <ul style="margin-bottom: 0; padding-left: 1.25rem;">
+            <li><strong>Income entries</strong> increase the selected account's balance</li>
+            <li><strong>Expense entries</strong> decrease the selected account's balance</li>
+            <li><strong>Transfers</strong> move money between accounts without affecting net worth</li>
+            <li>Click <strong>"+ Add Money"</strong> to quickly add funds to any account</li>
+            <li>Click <strong>"Set Starting"</strong> to set an initial balance for an account</li>
+            <li>Click <strong>"Edit"</strong> to change account name, type, or color</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Add Money Modal -->
+<div id="addMoneyModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);">
+    <div class="modal-content" style="background: var(--surface); margin: 10% auto; padding: 1.5rem; width: 90%; max-width: 450px; border-radius: var(--radius-lg);">
+        <span class="close" style="float: right; cursor: pointer; font-size: 1.5rem;">&times;</span>
+        <h3 style="margin-bottom: 1rem;">Add Money to Account</h3>
+        <form method="POST" id="addMoneyForm" action="{{ url_for('add_money_to_account') }}">
+            <input type="hidden" name="account_id" id="addMoneyAccountId">
+            <div class="form-group">
+                <label>Account</label>
+                <input type="text" id="addMoneyAccountName" readonly style="background: var(--surface2);">
+            </div>
+            <div class="form-group">
+                <label>Amount ({{ currency_symbol }})</label>
+                <input type="number" step="0.01" name="amount" placeholder="0.00" required autofocus>
+            </div>
+            <div class="form-group">
+                <label>Source</label>
+                <input type="text" name="source" value="Manual Deposit" required>
+            </div>
+            <div class="form-group">
+                <label>Description (optional)</label>
+                <textarea name="description" rows="2" style="width: 100%; padding: 0.5rem;"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" name="income_date" value="{{ today_date }}">
+            </div>
+            <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Add Money</button>
+                <button type="button" class="btn btn-outline" onclick="closeModal('addMoneyModal')" style="flex: 0.3;">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Update Balance Modal -->
+<div id="balanceModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);">
+    <div class="modal-content" style="background: var(--surface); margin: 10% auto; padding: 1.5rem; width: 90%; max-width: 400px; border-radius: var(--radius-lg);">
+        <span class="close" style="float: right; cursor: pointer; font-size: 1.5rem;">&times;</span>
+        <h3 style="margin-bottom: 1rem;">Set Starting Balance</h3>
+        <form method="POST" id="updateBalanceForm">
+            <div class="form-group">
+                <label>Account</label>
+                <input type="text" id="accountName" readonly style="background: var(--surface2);">
+            </div>
+            <div class="form-group">
+                <label>Initial Balance ({{ currency_symbol }})</label>
+                <input type="number" step="0.01" name="initial_balance" id="newBalance" required>
+                <small style="color: var(--text-muted); display: block; margin-top: 0.25rem;">This is the starting balance before any transactions</small>
+            </div>
+            <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Save Initial Balance</button>
+                <button type="button" class="btn btn-outline" onclick="closeModal('balanceModal')" style="flex: 0.3;">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function showAddMoney(accountId, accountName) {
+    const modal = document.getElementById('addMoneyModal');
+    document.getElementById('addMoneyAccountId').value = accountId;
+    document.getElementById('addMoneyAccountName').value = accountName;
+    modal.style.display = 'block';
+}
+
+function showUpdateBalance(accountId, accountName, currentBalance) {
+    const modal = document.getElementById('balanceModal');
+    const form = document.getElementById('updateBalanceForm');
+    form.action = "{{ url_for('edit_initial_balance', account_id=0) }}".replace('0', accountId);
+    document.getElementById('accountName').value = accountName;
+    document.getElementById('newBalance').value = currentBalance;
+    modal.style.display = 'block';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const addMoneyModal = document.getElementById('addMoneyModal');
+    const balanceModal = document.getElementById('balanceModal');
+    if (event.target == addMoneyModal) {
+        addMoneyModal.style.display = 'none';
+    }
+    if (event.target == balanceModal) {
+        balanceModal.style.display = 'none';
+    }
+}
+
+// Close with escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        document.getElementById('addMoneyModal').style.display = 'none';
+        document.getElementById('balanceModal').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}
